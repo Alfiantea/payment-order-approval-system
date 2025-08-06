@@ -1,22 +1,26 @@
 import { api, APIError } from "encore.dev/api";
 import { paymentDB } from "./db";
-import type { PaymentOrderWithDetails } from "./types";
+import type { PaymentOrderWithDetails, POItem } from "./types";
 
 export interface GetPaymentOrderRequest {
   id: number;
 }
 
-// Retrieves a payment order with full details including history and attachments.
+// Retrieves a payment order with full details including history, attachments, and items.
 export const get = api<GetPaymentOrderRequest, PaymentOrderWithDetails>(
   { expose: true, method: "GET", path: "/payment-orders/:id" },
   async (req) => {
-    // Get payment order with creator name
+    // Get payment order with user names
     const paymentOrder = await paymentDB.queryRow<PaymentOrderWithDetails>`
       SELECT 
         po.*,
-        u.name as created_by_name
+        u1.name as created_by_name,
+        u2.name as acknowledge_by_name,
+        u3.name as approval_by_name
       FROM payment_orders po
-      JOIN users u ON po.created_by = u.id
+      JOIN users u1 ON po.created_by = u1.id
+      LEFT JOIN users u2 ON po.acknowledge_by = u2.id
+      LEFT JOIN users u3 ON po.approval_by = u3.id
       WHERE po.id = ${req.id}
     `;
 
@@ -42,8 +46,16 @@ export const get = api<GetPaymentOrderRequest, PaymentOrderWithDetails>(
       ORDER BY created_at ASC
     `;
 
+    // Get PO items
+    const items = await paymentDB.queryAll<POItem>`
+      SELECT * FROM po_items
+      WHERE payment_order_id = ${req.id}
+      ORDER BY id ASC
+    `;
+
     paymentOrder.history = history;
     paymentOrder.attachments = attachments;
+    paymentOrder.items = items;
 
     return paymentOrder;
   }

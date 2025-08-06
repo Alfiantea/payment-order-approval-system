@@ -17,7 +17,9 @@ import {
   User,
   Calendar,
   DollarSign,
-  Building
+  Building,
+  FileText,
+  Package
 } from 'lucide-react';
 import { formatCurrency, formatDate, getStatusColor } from '../utils/format';
 import type { PaymentOrderStatus } from '~backend/payment/types';
@@ -28,7 +30,6 @@ export default function PaymentOrderDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [selectedStatus, setSelectedStatus] = useState<PaymentOrderStatus>('acknowledge');
   const [comments, setComments] = useState('');
   const [selectedUser, setSelectedUser] = useState(1);
 
@@ -137,23 +138,52 @@ export default function PaymentOrderDetail() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-600">PO Type</p>
+                    <p className="font-medium">{paymentOrder.po_type}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Building className="h-5 w-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-600">Department</p>
+                    <p className="font-medium">{paymentOrder.department}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Package className="h-5 w-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-600">Project Name</p>
+                    <p className="font-medium">{paymentOrder.project_name}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
                   <Building className="h-5 w-5 text-gray-400" />
                   <div>
                     <p className="text-sm text-gray-600">Vendor</p>
                     <p className="font-medium">{paymentOrder.vendor_name}</p>
-                    {paymentOrder.vendor_email && (
-                      <p className="text-sm text-gray-500">{paymentOrder.vendor_email}</p>
-                    )}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <DollarSign className="h-5 w-5 text-gray-400" />
                   <div>
-                    <p className="text-sm text-gray-600">Amount</p>
+                    <p className="text-sm text-gray-600">Total Amount</p>
                     <p className="font-medium text-lg">
-                      {formatCurrency(paymentOrder.amount)} {paymentOrder.currency}
+                      {formatCurrency(paymentOrder.amount, 'IDR')}
                     </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-5 w-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-600">PO Date</p>
+                    <p className="font-medium">{formatDate(paymentOrder.po_date)}</p>
                   </div>
                 </div>
 
@@ -175,12 +205,64 @@ export default function PaymentOrderDetail() {
                 </div>
               </div>
 
+              {(paymentOrder.acknowledge_by_name || paymentOrder.approval_by_name) && (
+                <div className="border-t pt-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {paymentOrder.acknowledge_by_name && (
+                      <div>
+                        <p className="text-sm text-gray-600">Acknowledge By</p>
+                        <p className="font-medium">{paymentOrder.acknowledge_by_name}</p>
+                      </div>
+                    )}
+                    {paymentOrder.approval_by_name && (
+                      <div>
+                        <p className="text-sm text-gray-600">Approval By</p>
+                        <p className="font-medium">{paymentOrder.approval_by_name}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {paymentOrder.description && (
-                <div>
+                <div className="border-t pt-4">
                   <p className="text-sm text-gray-600 mb-2">Description</p>
                   <p className="text-gray-900">{paymentOrder.description}</p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* PO Items */}
+          <Card>
+            <CardHeader>
+              <CardTitle>PO Items</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {paymentOrder.items?.map((item, index) => (
+                  <div key={item.id} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium">Item {index + 1}</h4>
+                      <span className="text-sm font-medium">
+                        IDR {item.total_price.toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                    <p className="text-gray-700 mb-2">{item.description}</p>
+                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <span>Quantity: {item.quantity}</span>
+                      <span>Unit Price: IDR {item.unit_price.toLocaleString('id-ID')}</span>
+                    </div>
+                  </div>
+                ))}
+                <div className="border-t pt-4">
+                  <div className="text-right">
+                    <span className="text-lg font-semibold">
+                      Total: IDR {paymentOrder.amount.toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -191,7 +273,7 @@ export default function PaymentOrderDetail() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {paymentOrder.history.map((entry, index) => (
+                {paymentOrder.history.map((entry) => (
                   <div key={entry.id} className="flex items-start gap-4 pb-4 border-b last:border-b-0">
                     <div className="flex-shrink-0 mt-1">
                       {entry.status === 'rejected' ? (
@@ -289,6 +371,31 @@ export default function PaymentOrderDetail() {
               </CardContent>
             </Card>
           )}
+
+          {/* Attachments */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Attachments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {paymentOrder.attachments?.length > 0 ? (
+                <div className="space-y-2">
+                  {paymentOrder.attachments.map((attachment) => (
+                    <div key={attachment.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                      <FileText className="h-4 w-4 text-gray-400" />
+                      <span className="text-sm">{attachment.filename}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <FileText className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No attachments uploaded</p>
+                  <p className="text-xs text-red-600 mt-1">Attachment is mandatory</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

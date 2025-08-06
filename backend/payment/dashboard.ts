@@ -7,6 +7,7 @@ export interface DashboardStats {
   completed_orders: number;
   total_amount: number;
   status_breakdown: { status: string; count: number }[];
+  department_breakdown: { department: string; count: number }[];
   recent_orders: any[];
 }
 
@@ -47,15 +48,24 @@ export const dashboard = api<void, DashboardResponse>(
       ORDER BY count DESC
     `;
 
+    // Get department breakdown
+    const departmentBreakdown = await paymentDB.queryAll<{ department: string; count: number }>`
+      SELECT department, COUNT(*) as count 
+      FROM payment_orders 
+      GROUP BY department 
+      ORDER BY count DESC
+    `;
+
     // Get recent orders
     const recentOrders = await paymentDB.queryAll<any>`
       SELECT 
         po.id,
         po.po_number,
         po.vendor_name,
+        po.project_name,
         po.amount,
-        po.currency,
         po.status,
+        po.department,
         po.created_at,
         u.name as created_by_name
       FROM payment_orders po
@@ -70,6 +80,7 @@ export const dashboard = api<void, DashboardResponse>(
       completed_orders: completedResult?.count || 0,
       total_amount: amountResult?.total || 0,
       status_breakdown: statusBreakdown,
+      department_breakdown: departmentBreakdown,
       recent_orders: recentOrders
     };
 

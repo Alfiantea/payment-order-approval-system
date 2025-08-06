@@ -1,17 +1,18 @@
 import { api } from "encore.dev/api";
 import { Query } from "encore.dev/api";
 import { paymentDB } from "./db";
-import type { PaymentOrder, PaymentOrderStatus } from "./types";
+import type { PaymentOrder, PaymentOrderStatus, Department } from "./types";
 
 export interface ListPaymentOrdersRequest {
   status?: Query<PaymentOrderStatus>;
-  vendor?: Query<string>;
+  department?: Query<Department>;
+  search?: Query<string>;
   limit?: Query<number>;
   offset?: Query<number>;
 }
 
 export interface ListPaymentOrdersResponse {
-  payment_orders: (PaymentOrder & { created_by_name: string })[];
+  payment_orders: (PaymentOrder & { created_by_name: string; acknowledge_by_name?: string; approval_by_name?: string })[];
   total: number;
 }
 
@@ -32,18 +33,28 @@ export const list = api<ListPaymentOrdersRequest, ListPaymentOrdersResponse>(
       paramIndex++;
     }
 
-    if (req.vendor) {
-      whereClause += ` AND po.vendor_name ILIKE $${paramIndex}`;
-      params.push(`%${req.vendor}%`);
+    if (req.department) {
+      whereClause += ` AND po.department = $${paramIndex}`;
+      params.push(req.department);
+      paramIndex++;
+    }
+
+    if (req.search) {
+      whereClause += ` AND (po.vendor_name ILIKE $${paramIndex} OR po.project_name ILIKE $${paramIndex} OR po.po_number ILIKE $${paramIndex})`;
+      params.push(`%${req.search}%`);
       paramIndex++;
     }
 
     const query = `
       SELECT 
         po.*,
-        u.name as created_by_name
+        u1.name as created_by_name,
+        u2.name as acknowledge_by_name,
+        u3.name as approval_by_name
       FROM payment_orders po
-      JOIN users u ON po.created_by = u.id
+      JOIN users u1 ON po.created_by = u1.id
+      LEFT JOIN users u2 ON po.acknowledge_by = u2.id
+      LEFT JOIN users u3 ON po.approval_by = u3.id
       ${whereClause}
       ORDER BY po.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -58,7 +69,7 @@ export const list = api<ListPaymentOrdersRequest, ListPaymentOrdersResponse>(
     params.push(limit, offset);
     const countParams = params.slice(0, -2);
 
-    const paymentOrders = await paymentDB.rawQueryAll<PaymentOrder & { created_by_name: string }>(query, ...params);
+    const paymentOrders = await paymentDB.rawQueryAll<PaymentOrder & { created_by_name: string; acknowledge_by_name?: string; approval_by_name?: string }>(query, ...params);
     const countResult = await paymentDB.rawQueryRow<{ total: number }>(countQuery, ...countParams);
 
     return {

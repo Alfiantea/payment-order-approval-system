@@ -7,7 +7,8 @@ import {
   Clock, 
   CheckCircle, 
   DollarSign,
-  TrendingUp
+  TrendingUp,
+  Building
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '../utils/format';
 
@@ -87,7 +88,7 @@ export default function Dashboard() {
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-600">Total Paid</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(stats?.total_amount || 0)}
+                  {formatCurrency(stats?.total_amount || 0, 'IDR')}
                 </p>
               </div>
               <DollarSign className="h-8 w-8 text-green-600" />
@@ -96,7 +97,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Status Breakdown */}
         <Card>
           <CardHeader>
@@ -121,6 +122,30 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
+        {/* Department Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building className="h-5 w-5" />
+              Department Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {stats?.department_breakdown?.map((item) => (
+                <div key={item.department} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">
+                      {item.department}
+                    </Badge>
+                  </div>
+                  <span className="font-medium">{item.count}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Recent Orders */}
         <Card>
           <CardHeader>
@@ -132,10 +157,11 @@ export default function Dashboard() {
                 <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex-1">
                     <p className="font-medium text-sm">{order.po_number}</p>
-                    <p className="text-xs text-gray-600">{order.vendor_name}</p>
+                    <p className="text-xs text-gray-600">{order.project_name}</p>
+                    <p className="text-xs text-gray-500">{order.vendor_name}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium text-sm">{formatCurrency(order.amount)}</p>
+                    <p className="font-medium text-sm">{formatCurrency(order.amount, 'IDR')}</p>
                     <Badge variant="outline" className="text-xs capitalize">
                       {order.status.replace('_', ' ')}
                     </Badge>

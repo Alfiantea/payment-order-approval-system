@@ -21,19 +21,37 @@ export type PaymentOrderStatus =
   | 'paid' 
   | 'rejected';
 
+export type POType = 'Petty Cash' | 'Payment Request' | 'Cash Advance';
+
+export type Department = 'MCorp' | 'MarkPlus inc' | 'MarkPlus Institute' | 'Markteers';
+
 export interface PaymentOrder {
   id: number;
   po_number: string;
   vendor_name: string;
-  vendor_email?: string;
   amount: number;
-  currency: string;
   due_date: Date;
   description?: string;
   status: PaymentOrderStatus;
+  po_type: POType;
+  department: Department;
+  project_name: string;
+  po_date: Date;
+  acknowledge_by?: number;
+  approval_by?: number;
   created_by: number;
   created_at: Date;
   updated_at: Date;
+}
+
+export interface POItem {
+  id: number;
+  payment_order_id: number;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  created_at: Date;
 }
 
 export interface PaymentOrderHistory {
@@ -59,6 +77,9 @@ export interface Attachment {
 
 export interface PaymentOrderWithDetails extends PaymentOrder {
   created_by_name: string;
+  acknowledge_by_name?: string;
+  approval_by_name?: string;
   history: (PaymentOrderHistory & { user_name: string })[];
   attachments: Attachment[];
+  items: POItem[];
 }

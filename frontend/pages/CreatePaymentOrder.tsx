@@ -9,7 +9,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
+import type { POType, Department } from '~backend/payment/types';
+
+interface POItem {
+  description: string;
+  quantity: number;
+  unit_price: number;
+}
 
 export default function CreatePaymentOrder() {
   const navigate = useNavigate();
@@ -17,13 +24,20 @@ export default function CreatePaymentOrder() {
   
   const [formData, setFormData] = useState({
     vendor_name: '',
-    vendor_email: '',
-    amount: '',
-    currency: 'USD',
     due_date: '',
     description: '',
-    created_by: 1, // Default to first user for demo
+    po_type: 'Payment Request' as POType,
+    department: 'MCorp' as Department,
+    project_name: '',
+    po_date: new Date().toISOString().split('T')[0],
+    acknowledge_by: '',
+    approval_by: '',
+    created_by: 1,
   });
+
+  const [items, setItems] = useState<POItem[]>([
+    { description: '', quantity: 1, unit_price: 0 }
+  ]);
 
   const { data: usersData } = useQuery({
     queryKey: ['users'],
@@ -52,7 +66,7 @@ export default function CreatePaymentOrder() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.vendor_name || !formData.amount || !formData.due_date) {
+    if (!formData.vendor_name || !formData.due_date || !formData.project_name) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields",
@@ -61,16 +75,55 @@ export default function CreatePaymentOrder() {
       return;
     }
 
+    if (items.some(item => !item.description || item.quantity <= 0 || item.unit_price <= 0)) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all item details with valid values",
+        variant: "destructive",
+      });
+      return;
+    }
+
     createMutation.mutate({
       ...formData,
-      amount: parseFloat(formData.amount),
       due_date: new Date(formData.due_date),
+      po_date: new Date(formData.po_date),
+      acknowledge_by: formData.acknowledge_by ? parseInt(formData.acknowledge_by) : undefined,
+      approval_by: formData.approval_by ? parseInt(formData.approval_by) : undefined,
+      items: items.map(item => ({
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+      })),
     });
   };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  const addItem = () => {
+    setItems([...items, { description: '', quantity: 1, unit_price: 0 }]);
+  };
+
+  const removeItem = (index: number) => {
+    if (items.length > 1) {
+      setItems(items.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateItem = (index: number, field: keyof POItem, value: string | number) => {
+    const updatedItems = [...items];
+    updatedItems[index] = { ...updatedItems[index], [field]: value };
+    setItems(updatedItems);
+  };
+
+  const getTotalAmount = () => {
+    return items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+  };
+
+  const poTypeOptions: POType[] = ['Petty Cash', 'Payment Request', 'Cash Advance'];
+  const departmentOptions: Department[] = ['MCorp', 'MarkPlus inc', 'MarkPlus Institute', 'Markteers'];
 
   return (
     <div className="space-y-6">
@@ -82,13 +135,59 @@ export default function CreatePaymentOrder() {
         <h1 className="text-2xl font-bold text-gray-900">Create Payment Order</h1>
       </div>
 
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle>Payment Order Details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Basic Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Basic Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="po_type">PO Type *</Label>
+                <Select value={formData.po_type} onValueChange={(value) => handleInputChange('po_type', value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {poTypeOptions.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="department">Department *</Label>
+                <Select value={formData.department} onValueChange={(value) => handleInputChange('department', value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departmentOptions.map((dept) => (
+                      <SelectItem key={dept} value={dept}>
+                        {dept}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="project_name">Project Name *</Label>
+                <Input
+                  id="project_name"
+                  value={formData.project_name}
+                  onChange={(e) => handleInputChange('project_name', e.target.value)}
+                  placeholder="Enter project name"
+                  required
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="vendor_name">Vendor Name *</Label>
                 <Input
@@ -99,51 +198,20 @@ export default function CreatePaymentOrder() {
                   required
                 />
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="vendor_email">Vendor Email</Label>
-                <Input
-                  id="vendor_email"
-                  type="email"
-                  value={formData.vendor_email}
-                  onChange={(e) => handleInputChange('vendor_email', e.target.value)}
-                  placeholder="vendor@example.com"
-                />
-              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="amount">Amount *</Label>
+                <Label htmlFor="po_date">PO Date *</Label>
                 <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.amount}
-                  onChange={(e) => handleInputChange('amount', e.target.value)}
-                  placeholder="0.00"
+                  id="po_date"
+                  type="date"
+                  value={formData.po_date}
+                  onChange={(e) => handleInputChange('po_date', e.target.value)}
                   required
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="currency">Currency</Label>
-                <Select value={formData.currency} onValueChange={(value) => handleInputChange('currency', value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="EUR">EUR</SelectItem>
-                    <SelectItem value="GBP">GBP</SelectItem>
-                    <SelectItem value="JPY">JPY</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="due_date">Due Date *</Label>
                 <Input
@@ -154,15 +222,33 @@ export default function CreatePaymentOrder() {
                   required
                 />
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="created_by">Created By</Label>
-                <Select value={formData.created_by.toString()} onValueChange={(value) => handleInputChange('created_by', value)}>
+                <Label htmlFor="acknowledge_by">Acknowledge By</Label>
+                <Select value={formData.acknowledge_by} onValueChange={(value) => handleInputChange('acknowledge_by', value)}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select acknowledger" />
                   </SelectTrigger>
                   <SelectContent>
-                    {usersData?.users.map((user) => (
+                    {usersData?.users.filter(user => user.role === 'acknowledger' || user.role === 'admin').map((user) => (
+                      <SelectItem key={user.id} value={user.id.toString()}>
+                        {user.name} ({user.role})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="approval_by">Approval By</Label>
+                <Select value={formData.approval_by} onValueChange={(value) => handleInputChange('approval_by', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select approver" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {usersData?.users.filter(user => user.role === 'approver' || user.role === 'admin').map((user) => (
                       <SelectItem key={user.id} value={user.id.toString()}>
                         {user.name} ({user.role})
                       </SelectItem>
@@ -182,19 +268,112 @@ export default function CreatePaymentOrder() {
                 rows={3}
               />
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="flex gap-4">
-              <Button type="submit" disabled={createMutation.isPending}>
-                <Save className="h-4 w-4 mr-2" />
-                {createMutation.isPending ? 'Creating...' : 'Create Payment Order'}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => navigate(-1)}>
-                Cancel
+        {/* PO Items */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>PO Items</CardTitle>
+              <Button type="button" onClick={addItem} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Item
               </Button>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {items.map((item, index) => (
+              <div key={index} className="border rounded-lg p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Item {index + 1}</h4>
+                  {items.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => removeItem(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="sm:col-span-2 space-y-2">
+                    <Label>Description *</Label>
+                    <Input
+                      value={item.description}
+                      onChange={(e) => updateItem(index, 'description', e.target.value)}
+                      placeholder="Item description"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Quantity *</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={item.quantity}
+                      onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Unit Price (IDR) *</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={item.unit_price}
+                      onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="text-right">
+                  <span className="text-sm text-gray-600">
+                    Subtotal: IDR {(item.quantity * item.unit_price).toLocaleString('id-ID')}
+                  </span>
+                </div>
+              </div>
+            ))}
+            
+            <div className="border-t pt-4">
+              <div className="text-right">
+                <span className="text-lg font-semibold">
+                  Total Amount: IDR {getTotalAmount().toLocaleString('id-ID')}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Attachment Notice */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-sm text-yellow-800">
+                <strong>Note:</strong> Document attachment is mandatory. Please ensure you have the required documents ready to upload after creating the payment order.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex gap-4">
+          <Button type="submit" disabled={createMutation.isPending}>
+            <Save className="h-4 w-4 mr-2" />
+            {createMutation.isPending ? 'Creating...' : 'Create Payment Order'}
+          </Button>
+          <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+            Cancel
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

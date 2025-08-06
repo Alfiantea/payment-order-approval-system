@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import backend from '~backend/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -11,8 +10,11 @@ import {
   Building
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '../utils/format';
+import { useBackend } from '../hooks/useAuth';
 
 export default function Dashboard() {
+  const backend = useBackend();
+  
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: () => backend.payment.dashboard(),

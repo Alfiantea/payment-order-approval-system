@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import backend from '~backend/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { 
   ArrowLeft, 
@@ -22,6 +20,7 @@ import {
   Package
 } from 'lucide-react';
 import { formatCurrency, formatDate, getStatusColor } from '../utils/format';
+import { useBackend } from '../hooks/useAuth';
 import type { PaymentOrderStatus } from '~backend/payment/types';
 
 export default function PaymentOrderDetail() {
@@ -29,9 +28,9 @@ export default function PaymentOrderDetail() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const backend = useBackend();
   
   const [comments, setComments] = useState('');
-  const [selectedUser, setSelectedUser] = useState(1);
 
   const { data: paymentOrder, isLoading } = useQuery({
     queryKey: ['payment-order', id],
@@ -39,17 +38,11 @@ export default function PaymentOrderDetail() {
     enabled: !!id,
   });
 
-  const { data: usersData } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => backend.payment.listUsers(),
-  });
-
   const updateStatusMutation = useMutation({
     mutationFn: (data: { status: PaymentOrderStatus; comments?: string }) =>
       backend.payment.updateStatus({
         id: parseInt(id!),
         status: data.status,
-        user_id: selectedUser,
         comments: data.comments,
       }),
     onSuccess: () => {
@@ -250,7 +243,7 @@ export default function PaymentOrderDetail() {
                     </div>
                     <p className="text-gray-700 mb-2">{item.description}</p>
                     <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <span>Quantity: {item.quantity}</span>
+                      <span>Quantity: {item.quantity} {item.unit}</span>
                       <span>Unit Price: IDR {item.unit_price.toLocaleString('id-ID')}</span>
                     </div>
                   </div>
@@ -313,22 +306,6 @@ export default function PaymentOrderDetail() {
                 <CardTitle>Update Status</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="user">Acting User</Label>
-                  <Select value={selectedUser.toString()} onValueChange={(value) => setSelectedUser(parseInt(value))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {usersData?.users.map((user) => (
-                        <SelectItem key={user.id} value={user.id.toString()}>
-                          {user.name} ({user.role})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="comments">Comments</Label>
                   <Textarea

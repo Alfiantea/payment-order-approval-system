@@ -1,4 +1,5 @@
 import { api } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { paymentDB } from "./db";
 import type { PaymentOrder, POType, Department, POItem } from "./types";
 
@@ -6,6 +7,7 @@ export interface CreatePOItemRequest {
   description: string;
   quantity: number;
   unit_price: number;
+  unit: string;
 }
 
 export interface CreatePaymentOrderRequest {
@@ -18,7 +20,6 @@ export interface CreatePaymentOrderRequest {
   po_date: Date;
   acknowledge_by?: number;
   approval_by?: number;
-  created_by: number;
   items: CreatePOItemRequest[];
 }
 
@@ -28,8 +29,11 @@ export interface CreatePaymentOrderResponse {
 
 // Creates a new payment order.
 export const create = api<CreatePaymentOrderRequest, CreatePaymentOrderResponse>(
-  { expose: true, method: "POST", path: "/payment-orders" },
+  { expose: true, method: "POST", path: "/payment-orders", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
+    const created_by = parseInt(auth.userID);
+
     // Validate items
     if (!req.items || req.items.length === 0) {
       throw new Error("At least one item is required");
@@ -58,7 +62,7 @@ export const create = api<CreatePaymentOrderRequest, CreatePaymentOrderResponse>
         VALUES (
           ${poNumber}, ${req.vendor_name}, ${totalAmount}, ${req.due_date}, ${req.description},
           ${req.po_type}, ${req.department}, ${req.project_name}, ${req.po_date},
-          ${req.acknowledge_by}, ${req.approval_by}, ${req.created_by}
+          ${req.acknowledge_by}, ${req.approval_by}, ${created_by}
         )
         RETURNING *
       `;
@@ -71,15 +75,15 @@ export const create = api<CreatePaymentOrderRequest, CreatePaymentOrderResponse>
       for (const item of req.items) {
         const totalPrice = item.quantity * item.unit_price;
         await paymentDB.exec`
-          INSERT INTO po_items (payment_order_id, description, quantity, unit_price, total_price)
-          VALUES (${paymentOrder.id}, ${item.description}, ${item.quantity}, ${item.unit_price}, ${totalPrice})
+          INSERT INTO po_items (payment_order_id, description, quantity, unit_price, total_price, unit)
+          VALUES (${paymentOrder.id}, ${item.description}, ${item.quantity}, ${item.unit_price}, ${totalPrice}, ${item.unit})
         `;
       }
 
       // Add history entry
       await paymentDB.exec`
         INSERT INTO payment_order_history (payment_order_id, status, action, user_id, comments)
-        VALUES (${paymentOrder.id}, 'draft', 'Created payment order', ${req.created_by}, 'Payment order created')
+        VALUES (${paymentOrder.id}, 'draft', 'Created payment order', ${created_by}, 'Payment order created')
       `;
 
       await paymentDB.exec`COMMIT`;

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import backend from '~backend/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -9,9 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Search, Eye } from 'lucide-react';
 import { formatCurrency, formatDate, getStatusColor } from '../utils/format';
+import { useBackend } from '../hooks/useAuth';
 import type { PaymentOrderStatus, Department } from '~backend/payment/types';
 
 export default function PaymentOrders() {
+  const backend = useBackend();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PaymentOrderStatus | 'all'>('all');
   const [departmentFilter, setDepartmentFilter] = useState<Department | 'all'>('all');

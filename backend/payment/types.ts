@@ -3,6 +3,7 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  hashed_password: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -51,6 +52,7 @@ export interface POItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  unit: string;
   created_at: Date;
 }
 

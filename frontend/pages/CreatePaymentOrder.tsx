@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import backend from '~backend/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,17 +9,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
+import { useBackend } from '../hooks/useAuth';
 import type { POType, Department } from '~backend/payment/types';
 
 interface POItem {
   description: string;
   quantity: number;
   unit_price: number;
+  unit: string;
 }
 
 export default function CreatePaymentOrder() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const backend = useBackend();
   
   const [formData, setFormData] = useState({
     vendor_name: '',
@@ -32,11 +34,10 @@ export default function CreatePaymentOrder() {
     po_date: new Date().toISOString().split('T')[0],
     acknowledge_by: '',
     approval_by: '',
-    created_by: 1,
   });
 
   const [items, setItems] = useState<POItem[]>([
-    { description: '', quantity: 1, unit_price: 0 }
+    { description: '', quantity: 1, unit_price: 0, unit: 'pcs' }
   ]);
 
   const { data: usersData } = useQuery({
@@ -75,7 +76,7 @@ export default function CreatePaymentOrder() {
       return;
     }
 
-    if (items.some(item => !item.description || item.quantity <= 0 || item.unit_price <= 0)) {
+    if (items.some(item => !item.description || item.quantity <= 0 || item.unit_price <= 0 || !item.unit)) {
       toast({
         title: "Validation Error",
         description: "Please fill in all item details with valid values",
@@ -94,6 +95,7 @@ export default function CreatePaymentOrder() {
         description: item.description,
         quantity: item.quantity,
         unit_price: item.unit_price,
+        unit: item.unit,
       })),
     });
   };
@@ -103,7 +105,7 @@ export default function CreatePaymentOrder() {
   };
 
   const addItem = () => {
-    setItems([...items, { description: '', quantity: 1, unit_price: 0 }]);
+    setItems([...items, { description: '', quantity: 1, unit_price: 0, unit: 'pcs' }]);
   };
 
   const removeItem = (index: number) => {
@@ -124,6 +126,7 @@ export default function CreatePaymentOrder() {
 
   const poTypeOptions: POType[] = ['Petty Cash', 'Payment Request', 'Cash Advance'];
   const departmentOptions: Department[] = ['MCorp', 'MarkPlus inc', 'MarkPlus Institute', 'Markteers'];
+  const unitOptions = ['pcs', 'kg', 'liter', 'meter', 'hour', 'day', 'month', 'year', 'set', 'box', 'pack'];
 
   return (
     <div className="space-y-6">
@@ -299,7 +302,7 @@ export default function CreatePaymentOrder() {
                   )}
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
                   <div className="sm:col-span-2 space-y-2">
                     <Label>Description *</Label>
                     <Input
@@ -320,6 +323,22 @@ export default function CreatePaymentOrder() {
                       onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
                       required
                     />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Unit *</Label>
+                    <Select value={item.unit} onValueChange={(value) => updateItem(index, 'unit', value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {unitOptions.map((unit) => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   
                   <div className="space-y-2">

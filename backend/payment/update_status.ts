@@ -1,11 +1,11 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { paymentDB } from "./db";
 import type { PaymentOrder, PaymentOrderStatus } from "./types";
 
 export interface UpdateStatusRequest {
   id: number;
   status: PaymentOrderStatus;
-  user_id: number;
   comments?: string;
 }
 
@@ -15,8 +15,11 @@ export interface UpdateStatusResponse {
 
 // Updates the status of a payment order.
 export const updateStatus = api<UpdateStatusRequest, UpdateStatusResponse>(
-  { expose: true, method: "PUT", path: "/payment-orders/:id/status" },
+  { expose: true, method: "PUT", path: "/payment-orders/:id/status", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
+    const user_id = parseInt(auth.userID);
+
     // Validate status transition
     const currentPO = await paymentDB.queryRow<PaymentOrder>`
       SELECT * FROM payment_orders WHERE id = ${req.id}
@@ -60,7 +63,7 @@ export const updateStatus = api<UpdateStatusRequest, UpdateStatusResponse>(
     const action = req.status === 'rejected' ? 'Rejected' : `Moved to ${req.status}`;
     await paymentDB.exec`
       INSERT INTO payment_order_history (payment_order_id, status, action, user_id, comments)
-      VALUES (${req.id}, ${req.status}, ${action}, ${req.user_id}, ${req.comments})
+      VALUES (${req.id}, ${req.status}, ${action}, ${user_id}, ${req.comments})
     `;
 
     return { payment_order: updatedPO };

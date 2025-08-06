@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import backend from '~backend/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,11 +21,22 @@ import {
   FileText
 } from 'lucide-react';
 import { formatDate } from '../utils/format';
-import type { User, UserRole } from '~backend/payment/types';
+import { useBackend } from '../hooks/useAuth';
+import type { UserRole } from '~backend/payment/types';
+
+interface User {
+  id: number;
+  email: string;
+  name: string;
+  role: UserRole;
+  created_at: Date;
+  updated_at: Date;
+}
 
 export default function UserManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const backend = useBackend();
   
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -36,12 +46,14 @@ export default function UserManagement() {
     email: '',
     name: '',
     role: 'finance_staff' as UserRole,
+    password: '',
   });
 
   const [editForm, setEditForm] = useState({
     email: '',
     name: '',
     role: 'finance_staff' as UserRole,
+    password: '',
   });
 
   const { data: usersData, isLoading } = useQuery({
@@ -64,7 +76,7 @@ export default function UserManagement() {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['user-stats'] });
       setIsCreateDialogOpen(false);
-      setCreateForm({ email: '', name: '', role: 'finance_staff' });
+      setCreateForm({ email: '', name: '', role: 'finance_staff', password: '' });
     },
     onError: (error) => {
       console.error('Create user error:', error);
@@ -77,7 +89,7 @@ export default function UserManagement() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: { id: number; email?: string; name?: string; role?: UserRole }) => 
+    mutationFn: (data: { id: number; email?: string; name?: string; role?: UserRole; password?: string }) => 
       backend.payment.updateUser(data),
     onSuccess: () => {
       toast({
@@ -121,10 +133,18 @@ export default function UserManagement() {
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!createForm.email || !createForm.name) {
+    if (!createForm.email || !createForm.name || !createForm.password) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (createForm.password.length < 8) {
+      toast({
+        title: "Validation Error",
+        description: "Password must be at least 8 characters long",
         variant: "destructive",
       });
       return;
@@ -142,11 +162,20 @@ export default function UserManagement() {
       });
       return;
     }
+    if (editForm.password && editForm.password.length < 8) {
+      toast({
+        title: "Validation Error",
+        description: "Password must be at least 8 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
     updateMutation.mutate({
       id: editingUser.id,
       email: editForm.email,
       name: editForm.name,
       role: editForm.role,
+      password: editForm.password || undefined,
     });
   };
 
@@ -156,6 +185,7 @@ export default function UserManagement() {
       email: user.email,
       name: user.name,
       role: user.role,
+      password: '',
     });
     setIsEditDialogOpen(true);
   };
@@ -221,6 +251,18 @@ export default function UserManagement() {
                   value={createForm.name}
                   onChange={(e) => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Full Name"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="create-password">Password *</Label>
+                <Input
+                  id="create-password"
+                  type="password"
+                  value={createForm.password}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, password: e.target.value }))}
+                  placeholder="Minimum 8 characters"
                   required
                 />
               </div>
@@ -373,6 +415,17 @@ export default function UserManagement() {
                                 value={editForm.name}
                                 onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
                                 required
+                              />
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor="edit-password">New Password (optional)</Label>
+                              <Input
+                                id="edit-password"
+                                type="password"
+                                value={editForm.password}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, password: e.target.value }))}
+                                placeholder="Leave blank to keep current password"
                               />
                             </div>
                             

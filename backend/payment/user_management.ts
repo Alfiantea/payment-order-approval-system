@@ -1,11 +1,14 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { paymentDB } from "./db";
+import { hashPassword } from "../auth/auth";
 import type { User, UserRole } from "./types";
 
 export interface CreateUserRequest {
   email: string;
   name: string;
   role: UserRole;
+  password: string;
 }
 
 export interface UpdateUserRequest {
@@ -13,6 +16,7 @@ export interface UpdateUserRequest {
   email?: string;
   name?: string;
   role?: UserRole;
+  password?: string;
 }
 
 export interface DeleteUserRequest {
@@ -20,17 +24,24 @@ export interface DeleteUserRequest {
 }
 
 export interface CreateUserResponse {
-  user: User;
+  user: Omit<User, 'hashed_password'>;
 }
 
 export interface UpdateUserResponse {
-  user: User;
+  user: Omit<User, 'hashed_password'>;
 }
 
 // Creates a new user (admin only).
 export const createUser = api<CreateUserRequest, CreateUserResponse>(
-  { expose: true, method: "POST", path: "/admin/users" },
+  { expose: true, method: "POST", path: "/admin/users", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
+    
+    // Check if user is admin
+    if (auth.role !== 'admin') {
+      throw APIError.permissionDenied("Only admins can create users");
+    }
+
     // Check if email already exists
     const existingUser = await paymentDB.queryRow<User>`
       SELECT * FROM users WHERE email = ${req.email}
@@ -40,10 +51,17 @@ export const createUser = api<CreateUserRequest, CreateUserResponse>(
       throw APIError.alreadyExists("User with this email already exists");
     }
 
+    if (req.password.length < 8) {
+      throw APIError.invalidArgument("Password must be at least 8 characters long");
+    }
+
+    // Hash password
+    const hashedPassword = await hashPassword(req.password);
+
     // Create new user
     const user = await paymentDB.queryRow<User>`
-      INSERT INTO users (email, name, role)
-      VALUES (${req.email}, ${req.name}, ${req.role})
+      INSERT INTO users (email, name, role, hashed_password)
+      VALUES (${req.email}, ${req.name}, ${req.role}, ${hashedPassword})
       RETURNING *
     `;
 
@@ -51,14 +69,23 @@ export const createUser = api<CreateUserRequest, CreateUserResponse>(
       throw APIError.internal("Failed to create user");
     }
 
-    return { user };
+    // Return user without password
+    const { hashed_password, ...userWithoutPassword } = user;
+    return { user: userWithoutPassword };
   }
 );
 
 // Updates an existing user (admin only).
 export const updateUser = api<UpdateUserRequest, UpdateUserResponse>(
-  { expose: true, method: "PUT", path: "/admin/users/:id" },
+  { expose: true, method: "PUT", path: "/admin/users/:id", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
+    
+    // Check if user is admin
+    if (auth.role !== 'admin') {
+      throw APIError.permissionDenied("Only admins can update users");
+    }
+
     // Check if user exists
     const existingUser = await paymentDB.queryRow<User>`
       SELECT * FROM users WHERE id = ${req.id}
@@ -102,6 +129,16 @@ export const updateUser = api<UpdateUserRequest, UpdateUserResponse>(
       paramIndex++;
     }
 
+    if (req.password !== undefined) {
+      if (req.password.length < 8) {
+        throw APIError.invalidArgument("Password must be at least 8 characters long");
+      }
+      const hashedPassword = await hashPassword(req.password);
+      updates.push(`hashed_password = $${paramIndex}`);
+      params.push(hashedPassword);
+      paramIndex++;
+    }
+
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
     params.push(req.id);
 
@@ -118,14 +155,23 @@ export const updateUser = api<UpdateUserRequest, UpdateUserResponse>(
       throw APIError.internal("Failed to update user");
     }
 
-    return { user };
+    // Return user without password
+    const { hashed_password, ...userWithoutPassword } = user;
+    return { user: userWithoutPassword };
   }
 );
 
 // Deletes a user (admin only).
 export const deleteUser = api<DeleteUserRequest, void>(
-  { expose: true, method: "DELETE", path: "/admin/users/:id" },
+  { expose: true, method: "DELETE", path: "/admin/users/:id", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
+    
+    // Check if user is admin
+    if (auth.role !== 'admin') {
+      throw APIError.permissionDenied("Only admins can delete users");
+    }
+
     // Check if user exists
     const existingUser = await paymentDB.queryRow<User>`
       SELECT * FROM users WHERE id = ${req.id}
@@ -133,6 +179,11 @@ export const deleteUser = api<DeleteUserRequest, void>(
 
     if (!existingUser) {
       throw APIError.notFound("User not found");
+    }
+
+    // Prevent deleting self
+    if (req.id === parseInt(auth.userID)) {
+      throw APIError.invalidArgument("Cannot delete your own account");
     }
 
     // Check if user has any payment orders
@@ -161,8 +212,15 @@ export const deleteUser = api<DeleteUserRequest, void>(
 
 // Gets user statistics (admin only).
 export const getUserStats = api<void, { total_users: number; role_breakdown: { role: string; count: number }[] }>(
-  { expose: true, method: "GET", path: "/admin/users/stats" },
+  { expose: true, method: "GET", path: "/admin/users/stats", auth: true },
   async () => {
+    const auth = getAuthData()!;
+    
+    // Check if user is admin
+    if (auth.role !== 'admin') {
+      throw APIError.permissionDenied("Only admins can view user statistics");
+    }
+
     // Get total users
     const totalResult = await paymentDB.queryRow<{ count: number }>`
       SELECT COUNT(*) as count FROM users

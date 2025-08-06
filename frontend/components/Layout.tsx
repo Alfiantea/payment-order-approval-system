@@ -1,12 +1,16 @@
-import { ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { ReactNode, useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
   FileText, 
   Plus,
-  Users
+  Users,
+  LogOut,
+  User
 } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 
 interface LayoutProps {
   children: ReactNode;
@@ -16,11 +20,44 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Payment Orders', href: '/payment-orders', icon: FileText },
   { name: 'Create Order', href: '/payment-orders/new', icon: Plus },
+];
+
+const adminNavigation = [
   { name: 'User Management', href: '/admin/users', icon: Users },
 ];
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout, isAuthenticated } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated && location.pathname !== '/login') {
+      navigate('/login');
+    }
+  }, [isAuthenticated, location.pathname, navigate]);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  if (!isAuthenticated) {
+    return <>{children}</>;
+  }
+
+  const allNavigation = [
+    ...navigation,
+    ...(user?.role === 'admin' ? adminNavigation : [])
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -33,7 +70,7 @@ export default function Layout({ children }: LayoutProps) {
                 <h1 className="text-xl font-bold text-white">Payment Order System</h1>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                {navigation.map((item) => {
+                {allNavigation.map((item) => {
                   const Icon = item.icon;
                   const isActive = location.pathname === item.href;
                   
@@ -55,13 +92,32 @@ export default function Layout({ children }: LayoutProps) {
                 })}
               </div>
             </div>
+            
+            {/* User Menu */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-white">
+                <User className="h-4 w-4" />
+                <span className="text-sm">{user?.name}</span>
+                <span className="text-xs text-red-200 capitalize">({user?.role?.replace('_', ' ')})</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="text-white hover:bg-red-700"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                {isLoggingOut ? 'Logging out...' : 'Logout'}
+              </Button>
+            </div>
           </div>
         </div>
 
         {/* Mobile menu */}
         <div className="sm:hidden">
           <div className="space-y-1 pb-3 pt-2">
-            {navigation.map((item) => {
+            {allNavigation.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
               
@@ -83,6 +139,18 @@ export default function Layout({ children }: LayoutProps) {
                 </Link>
               );
             })}
+            <div className="border-t border-red-500 mt-2 pt-2">
+              <button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="block w-full text-left border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-red-100 hover:border-red-300 hover:bg-red-700 hover:text-white"
+              >
+                <div className="flex items-center">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  {isLoggingOut ? 'Logging out...' : 'Logout'}
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       </nav>

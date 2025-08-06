@@ -100,3 +100,7 @@ export function useBackend() {
     auth: () => Promise.resolve({ authorization: `Bearer ${token}` })
   });
 }
+
+The issue was that I changed the file extension from `.tsx` to `.ts`, but the file contains JSX syntax (`<AuthContext.Provider value={value}>{children}</AuthContext.Provider>`). Since it contains JSX, it must have the `.tsx` extension.
+
+I've changed it back to `useAuth.tsx` to fix the parsing error.

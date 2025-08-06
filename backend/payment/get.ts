@@ -1,4 +1,5 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { paymentDB } from "./db";
 import type { PaymentOrderWithDetails, POItem } from "./types";
 
@@ -8,8 +9,10 @@ export interface GetPaymentOrderRequest {
 
 // Retrieves a payment order with full details including history, attachments, and items.
 export const get = api<GetPaymentOrderRequest, PaymentOrderWithDetails>(
-  { expose: true, method: "GET", path: "/payment-orders/:id" },
+  { expose: true, method: "GET", path: "/payment-orders/:id", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
+
     // Get payment order with user names
     const paymentOrder = await paymentDB.queryRow<PaymentOrderWithDetails>`
       SELECT 

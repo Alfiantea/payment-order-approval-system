@@ -1,4 +1,5 @@
 import { api } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { paymentDB } from "./db";
 
 export interface DashboardStats {
@@ -17,8 +18,10 @@ export interface DashboardResponse {
 
 // Retrieves dashboard statistics and data.
 export const dashboard = api<void, DashboardResponse>(
-  { expose: true, method: "GET", path: "/dashboard" },
+  { expose: true, method: "GET", path: "/dashboard", auth: true },
   async () => {
+    const auth = getAuthData()!;
+
     // Get total orders
     const totalResult = await paymentDB.queryRow<{ count: number }>`
       SELECT COUNT(*) as count FROM payment_orders

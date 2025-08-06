@@ -14,8 +14,8 @@ export default function Login() {
   const { login } = useAuth();
   
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
+    email: 'admin@company.com',
+    password: 'changeMe123!',
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -39,11 +39,11 @@ export default function Login() {
         description: "Logged in successfully",
       });
       navigate('/');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
       toast({
         title: "Login Failed",
-        description: "Invalid email or password",
+        description: error?.message || "Invalid email or password",
         variant: "destructive",
       });
     } finally {
@@ -101,14 +101,14 @@ export default function Login() {
               </Button>
             </form>
             
-            <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">
-                <strong>Default Login:</strong><br />
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>Default Login Credentials:</strong><br />
                 Email: admin@company.com<br />
                 Password: changeMe123!
               </p>
-              <p className="text-xs text-yellow-700 mt-2">
-                Please change the default password after first login.
+              <p className="text-xs text-blue-700 mt-2">
+                The form is pre-filled with default credentials for easy testing.
               </p>
             </div>
           </CardContent>

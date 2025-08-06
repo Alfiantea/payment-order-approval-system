@@ -1,5 +1,6 @@
 import { api } from "encore.dev/api";
 import { Query } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { paymentDB } from "./db";
 import type { PaymentOrder, PaymentOrderStatus, Department } from "./types";
 
@@ -18,8 +19,9 @@ export interface ListPaymentOrdersResponse {
 
 // Retrieves all payment orders with optional filtering.
 export const list = api<ListPaymentOrdersRequest, ListPaymentOrdersResponse>(
-  { expose: true, method: "GET", path: "/payment-orders" },
+  { expose: true, method: "GET", path: "/payment-orders", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
     const limit = req.limit || 50;
     const offset = req.offset || 0;
     

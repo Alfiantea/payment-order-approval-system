@@ -46,7 +46,7 @@ export const login = api<LoginRequest, LoginResponse>(
       throw APIError.unauthenticated("Invalid email or password");
     }
 
-    // Generate JWT token
+    // Generate token
     const token = generateToken(user.id);
 
     return {

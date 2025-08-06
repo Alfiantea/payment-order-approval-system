@@ -7,9 +7,9 @@ ALTER TABLE po_items
 ADD COLUMN unit VARCHAR(50) NOT NULL DEFAULT 'pcs';
 
 -- Update existing users with a default hashed password (should be changed on first login)
--- This is a simple SHA-256 hash of "changeMe123!" with salt - users should change this immediately
+-- This is the SHA-256 hash of "changeMe123!" with salt "salt123" that matches our hashPassword function
 UPDATE users 
-SET hashed_password = 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3'
+SET hashed_password = 'e258d248fda94c63753607f7c4494ee0fcbe92f1a76bfdac795c9d84101eb317'
 WHERE hashed_password IS NULL;
 
 -- Make hashed_password NOT NULL after setting default values

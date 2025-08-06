@@ -41,9 +41,20 @@ export default function Login() {
       navigate('/');
     } catch (error: any) {
       console.error('Login error:', error);
+      
+      // Extract error message from the response
+      let errorMessage = "Invalid email or password";
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
       toast({
         title: "Login Failed",
-        description: error?.message || "Invalid email or password",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -109,6 +120,12 @@ export default function Login() {
               </p>
               <p className="text-xs text-blue-700 mt-2">
                 The form is pre-filled with default credentials for easy testing.
+              </p>
+            </div>
+            
+            <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <p className="text-xs text-gray-600">
+                <strong>Debug Info:</strong> If login fails, check that the database migration has run successfully and the user exists with the correct password hash.
               </p>
             </div>
           </CardContent>

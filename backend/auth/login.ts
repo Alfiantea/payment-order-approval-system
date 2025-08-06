@@ -23,6 +23,8 @@ export interface LoginResponse {
 export const login = api<LoginRequest, LoginResponse>(
   { expose: true, method: "POST", path: "/auth/login" },
   async (req) => {
+    console.log("Login attempt for email:", req.email);
+    
     if (!req.email || !req.password) {
       throw APIError.invalidArgument("Email and password are required");
     }
@@ -32,22 +34,30 @@ export const login = api<LoginRequest, LoginResponse>(
       SELECT * FROM users WHERE email = ${req.email}
     `;
 
+    console.log("User found:", user ? "Yes" : "No");
+
     if (!user) {
       throw APIError.unauthenticated("Invalid email or password");
     }
 
     if (!user.hashed_password) {
+      console.log("User has no hashed password");
       throw APIError.unauthenticated("Account not properly configured");
     }
 
+    console.log("Stored hash:", user.hashed_password);
+
     // Verify password
     const isValidPassword = await verifyPassword(req.password, user.hashed_password);
+    console.log("Password valid:", isValidPassword);
+
     if (!isValidPassword) {
       throw APIError.unauthenticated("Invalid email or password");
     }
 
     // Generate token
     const token = generateToken(user.id);
+    console.log("Generated token:", token);
 
     return {
       user: {

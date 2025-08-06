@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
-import { LogIn } from 'lucide-react';
+import { LogIn, AlertCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 export default function Login() {
@@ -18,6 +18,7 @@ export default function Login() {
     password: 'changeMe123!',
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,8 +33,11 @@ export default function Login() {
     }
 
     setIsLoading(true);
+    setDebugInfo('Attempting login...');
+    
     try {
       await login(formData.email, formData.password);
+      setDebugInfo('Login successful!');
       toast({
         title: "Success",
         description: "Logged in successfully",
@@ -43,14 +47,26 @@ export default function Login() {
       console.error('Login error:', error);
       
       // Extract error message from the response
-      let errorMessage = "Invalid email or password";
+      let errorMessage = "Login failed";
+      let debugMessage = '';
+      
       if (error?.message) {
         errorMessage = error.message;
+        debugMessage = `Error: ${error.message}`;
       } else if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
+        debugMessage = `API Error: ${error.response.data.message}`;
       } else if (typeof error === 'string') {
         errorMessage = error;
+        debugMessage = `String Error: ${error}`;
+      } else if (error?.name === 'TypeError' && error?.message?.includes('fetch')) {
+        errorMessage = "Cannot connect to server. Please check if the backend is running.";
+        debugMessage = "Network Error: Failed to fetch - backend may not be running";
+      } else {
+        debugMessage = `Unknown Error: ${JSON.stringify(error)}`;
       }
+      
+      setDebugInfo(debugMessage);
       
       toast({
         title: "Login Failed",
@@ -64,6 +80,28 @@ export default function Login() {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const testConnection = async () => {
+    setDebugInfo('Testing connection...');
+    try {
+      // Try to make a simple request to test connectivity
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: 'test', password: 'test' }),
+      });
+      
+      if (response.ok || response.status === 400 || response.status === 401) {
+        setDebugInfo('✅ Backend is reachable');
+      } else {
+        setDebugInfo(`❌ Backend returned status: ${response.status}`);
+      }
+    } catch (error: any) {
+      setDebugInfo(`❌ Connection failed: ${error.message}`);
+    }
   };
 
   return (
@@ -124,9 +162,27 @@ export default function Login() {
             </div>
             
             <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-              <p className="text-xs text-gray-600">
-                <strong>Debug Info:</strong> If login fails, check that the database migration has run successfully and the user exists with the correct password hash.
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-gray-700">Debug Information:</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={testConnection}
+                  className="text-xs h-6"
+                >
+                  Test Connection
+                </Button>
+              </div>
+              {debugInfo && (
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-3 w-3 text-gray-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-gray-600 break-all">{debugInfo}</p>
+                </div>
+              )}
+              {!debugInfo && (
+                <p className="text-xs text-gray-500">No debug information yet. Try logging in or test the connection.</p>
+              )}
             </div>
           </CardContent>
         </Card>

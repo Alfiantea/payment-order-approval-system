@@ -56,9 +56,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await backend.auth.login({ email, password });
-    localStorage.setItem('auth_token', response.token);
-    setUser(response.user);
+    try {
+      console.log('Attempting login with backend client...');
+      const response = await backend.auth.login({ email, password });
+      console.log('Login response received:', response);
+      
+      localStorage.setItem('auth_token', response.token);
+      setUser(response.user);
+    } catch (error) {
+      console.error('Login error in useAuth:', error);
+      throw error;
+    }
   };
 
   const logout = async () => {

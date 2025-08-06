@@ -1,6 +1,6 @@
 import { api, APIError, Cookie } from "encore.dev/api";
 import { paymentDB } from "../payment/db";
-import { verifyPassword, generateToken } from "./auth";
+import { generateToken } from "./auth";
 import type { User } from "../payment/types";
 
 export interface LoginRequest {
@@ -40,20 +40,13 @@ export const login = api<LoginRequest, LoginResponse>(
       throw APIError.unauthenticated("Invalid email or password");
     }
 
-    if (!user.hashed_password) {
-      console.log("User has no hashed password");
-      throw APIError.unauthenticated("Account not properly configured");
-    }
-
-    console.log("Stored hash:", user.hashed_password);
-
-    // Verify password
-    const isValidPassword = await verifyPassword(req.password, user.hashed_password);
-    console.log("Password valid:", isValidPassword);
-
-    if (!isValidPassword) {
+    // Simple password verification - compare plain text
+    if (req.password !== user.password) {
+      console.log("Password mismatch");
       throw APIError.unauthenticated("Invalid email or password");
     }
+
+    console.log("Password verified successfully");
 
     // Generate token
     const token = generateToken(user.id);

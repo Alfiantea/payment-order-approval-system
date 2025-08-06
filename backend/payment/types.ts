@@ -3,7 +3,7 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
-  hashed_password: string;
+  password: string;
   created_at: Date;
   updated_at: Date;
 }

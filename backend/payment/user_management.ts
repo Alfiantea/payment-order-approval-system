@@ -1,7 +1,6 @@
 import { api, APIError } from "encore.dev/api";
 import { getAuthData } from "~encore/auth";
 import { paymentDB } from "./db";
-import { hashPassword } from "../auth/auth";
 import type { User, UserRole } from "./types";
 
 export interface CreateUserRequest {
@@ -24,11 +23,11 @@ export interface DeleteUserRequest {
 }
 
 export interface CreateUserResponse {
-  user: Omit<User, 'hashed_password'>;
+  user: Omit<User, 'password'>;
 }
 
 export interface UpdateUserResponse {
-  user: Omit<User, 'hashed_password'>;
+  user: Omit<User, 'password'>;
 }
 
 // Creates a new user (admin only).
@@ -55,13 +54,10 @@ export const createUser = api<CreateUserRequest, CreateUserResponse>(
       throw APIError.invalidArgument("Password must be at least 8 characters long");
     }
 
-    // Hash password
-    const hashedPassword = await hashPassword(req.password);
-
-    // Create new user
+    // Create new user with plain text password
     const user = await paymentDB.queryRow<User>`
-      INSERT INTO users (email, name, role, hashed_password)
-      VALUES (${req.email}, ${req.name}, ${req.role}, ${hashedPassword})
+      INSERT INTO users (email, name, role, password)
+      VALUES (${req.email}, ${req.name}, ${req.role}, ${req.password})
       RETURNING *
     `;
 
@@ -70,7 +66,7 @@ export const createUser = api<CreateUserRequest, CreateUserResponse>(
     }
 
     // Return user without password
-    const { hashed_password, ...userWithoutPassword } = user;
+    const { password, ...userWithoutPassword } = user;
     return { user: userWithoutPassword };
   }
 );
@@ -133,9 +129,8 @@ export const updateUser = api<UpdateUserRequest, UpdateUserResponse>(
       if (req.password.length < 8) {
         throw APIError.invalidArgument("Password must be at least 8 characters long");
       }
-      const hashedPassword = await hashPassword(req.password);
-      updates.push(`hashed_password = $${paramIndex}`);
-      params.push(hashedPassword);
+      updates.push(`password = $${paramIndex}`);
+      params.push(req.password);
       paramIndex++;
     }
 
@@ -156,7 +151,7 @@ export const updateUser = api<UpdateUserRequest, UpdateUserResponse>(
     }
 
     // Return user without password
-    const { hashed_password, ...userWithoutPassword } = user;
+    const { password, ...userWithoutPassword } = user;
     return { user: userWithoutPassword };
   }
 );

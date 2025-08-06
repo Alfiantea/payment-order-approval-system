@@ -4,7 +4,7 @@ import { paymentDB } from "./db";
 import type { User } from "./types";
 
 export interface ListUsersResponse {
-  users: Omit<User, 'hashed_password'>[];
+  users: Omit<User, 'password'>[];
 }
 
 // Retrieves all users.

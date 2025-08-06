@@ -1,6 +1,5 @@
 import { api, APIError } from "encore.dev/api";
 import { paymentDB } from "../payment/db";
-import { hashPassword } from "./auth";
 import type { User, UserRole } from "../payment/types";
 
 export interface RegisterRequest {
@@ -40,13 +39,10 @@ export const register = api<RegisterRequest, RegisterResponse>(
       throw APIError.alreadyExists("User with this email already exists");
     }
 
-    // Hash password
-    const hashedPassword = await hashPassword(req.password);
-
-    // Create new user
+    // Create new user with plain text password
     const user = await paymentDB.queryRow<User>`
-      INSERT INTO users (email, name, role, hashed_password)
-      VALUES (${req.email}, ${req.name}, ${req.role}, ${hashedPassword})
+      INSERT INTO users (email, name, role, password)
+      VALUES (${req.email}, ${req.name}, ${req.role}, ${req.password})
       RETURNING *
     `;
 

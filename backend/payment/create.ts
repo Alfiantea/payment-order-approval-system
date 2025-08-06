@@ -21,6 +21,9 @@ export interface CreatePaymentOrderRequest {
   acknowledge_by?: number;
   approval_by?: number;
   items: CreatePOItemRequest[];
+  document_filename: string;
+  document_data: string; // Base64 encoded file data
+  document_mime_type: string;
 }
 
 export interface CreatePaymentOrderResponse {
@@ -37,6 +40,27 @@ export const create = api<CreatePaymentOrderRequest, CreatePaymentOrderResponse>
     // Validate items
     if (!req.items || req.items.length === 0) {
       throw new Error("At least one item is required");
+    }
+
+    // Validate document upload
+    if (!req.document_filename || !req.document_data || !req.document_mime_type) {
+      throw new Error("Document upload is mandatory");
+    }
+
+    // Validate file type (allow common document types)
+    const allowedMimeTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+
+    if (!allowedMimeTypes.includes(req.document_mime_type)) {
+      throw new Error("Invalid file type. Please upload PDF, Word, Excel, or image files only.");
     }
 
     // Calculate total amount
@@ -80,10 +104,20 @@ export const create = api<CreatePaymentOrderRequest, CreatePaymentOrderResponse>
         `;
       }
 
+      // Calculate file size from base64 data
+      const fileSize = Math.round((req.document_data.length * 3) / 4);
+
+      // Insert attachment record
+      const filePath = `po-documents/${paymentOrder.id}/${req.document_filename}`;
+      await paymentDB.exec`
+        INSERT INTO attachments (payment_order_id, filename, file_path, file_size, mime_type, uploaded_by)
+        VALUES (${paymentOrder.id}, ${req.document_filename}, ${filePath}, ${fileSize}, ${req.document_mime_type}, ${created_by})
+      `;
+
       // Add history entry
       await paymentDB.exec`
         INSERT INTO payment_order_history (payment_order_id, status, action, user_id, comments)
-        VALUES (${paymentOrder.id}, 'draft', 'Created payment order', ${created_by}, 'Payment order created')
+        VALUES (${paymentOrder.id}, 'draft', 'Created payment order', ${created_by}, 'Payment order created with document attachment')
       `;
 
       await paymentDB.exec`COMMIT`;

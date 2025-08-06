@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
-import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Upload, FileText, X } from 'lucide-react';
 import { useBackend } from '../hooks/useAuth';
 import type { POType, Department } from '~backend/payment/types';
 
@@ -17,6 +17,13 @@ interface POItem {
   quantity: number;
   unit_price: number;
   unit: string;
+}
+
+interface UploadedFile {
+  name: string;
+  data: string; // Base64 encoded
+  type: string;
+  size: number;
 }
 
 export default function CreatePaymentOrder() {
@@ -40,6 +47,9 @@ export default function CreatePaymentOrder() {
     { description: '', quantity: 1, unit_price: 0, unit: 'pcs' }
   ]);
 
+  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
   const { data: usersData } = useQuery({
     queryKey: ['users'],
     queryFn: () => backend.payment.listUsers(),
@@ -54,15 +64,94 @@ export default function CreatePaymentOrder() {
       });
       navigate(`/payment-orders/${response.payment_order.id}`);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Create payment order error:', error);
+      let errorMessage = "Failed to create payment order";
+      if (error?.message) {
+        errorMessage = error.message;
+      }
       toast({
         title: "Error",
-        description: "Failed to create payment order",
+        description: errorMessage,
         variant: "destructive",
       });
     },
   });
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Please select a file smaller than 10MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please upload PDF, Word, Excel, or image files only",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        const base64Data = result.split(',')[1]; // Remove data:mime;base64, prefix
+        
+        setUploadedFile({
+          name: file.name,
+          data: base64Data,
+          type: file.type,
+          size: file.size,
+        });
+        setIsUploading(false);
+      };
+      reader.onerror = () => {
+        toast({
+          title: "Upload Error",
+          description: "Failed to read the file",
+          variant: "destructive",
+        });
+        setIsUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('File upload error:', error);
+      toast({
+        title: "Upload Error",
+        description: "Failed to upload the file",
+        variant: "destructive",
+      });
+      setIsUploading(false);
+    }
+  };
+
+  const removeFile = () => {
+    setUploadedFile(null);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +174,15 @@ export default function CreatePaymentOrder() {
       return;
     }
 
+    if (!uploadedFile) {
+      toast({
+        title: "Validation Error",
+        description: "Document upload is mandatory. Please upload a document.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     createMutation.mutate({
       ...formData,
       due_date: new Date(formData.due_date),
@@ -97,6 +195,9 @@ export default function CreatePaymentOrder() {
         unit_price: item.unit_price,
         unit: item.unit,
       })),
+      document_filename: uploadedFile.name,
+      document_data: uploadedFile.data,
+      document_mime_type: uploadedFile.type,
     });
   };
 
@@ -122,6 +223,14 @@ export default function CreatePaymentOrder() {
 
   const getTotalAmount = () => {
     return items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const poTypeOptions: POType[] = ['Petty Cash', 'Payment Request', 'Cash Advance'];
@@ -274,6 +383,80 @@ export default function CreatePaymentOrder() {
           </CardContent>
         </Card>
 
+        {/* Document Upload */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Document Upload *
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+              {!uploadedFile ? (
+                <div className="text-center">
+                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <div className="space-y-2">
+                    <Label htmlFor="document-upload" className="cursor-pointer">
+                      <span className="text-lg font-medium text-gray-900">Upload Document</span>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Click to select or drag and drop your file here
+                      </p>
+                    </Label>
+                    <Input
+                      id="document-upload"
+                      type="file"
+                      onChange={handleFileUpload}
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                      className="hidden"
+                      disabled={isUploading}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => document.getElementById('document-upload')?.click()}
+                      disabled={isUploading}
+                    >
+                      {isUploading ? 'Uploading...' : 'Select File'}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-4">
+                    Supported formats: PDF, Word, Excel, JPG, PNG (Max 10MB)
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-8 w-8 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-900">{uploadedFile.name}</p>
+                      <p className="text-sm text-green-700">
+                        {formatFileSize(uploadedFile.size)} • {uploadedFile.type}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={removeFile}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+            
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm text-red-800">
+                <strong>Important:</strong> Document upload is mandatory for all payment orders. 
+                Please ensure you upload the required supporting documents before submitting.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* PO Items */}
         <Card>
           <CardHeader>
@@ -372,19 +555,8 @@ export default function CreatePaymentOrder() {
           </CardContent>
         </Card>
 
-        {/* Attachment Notice */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <p className="text-sm text-yellow-800">
-                <strong>Note:</strong> Document attachment is mandatory. Please ensure you have the required documents ready to upload after creating the payment order.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
         <div className="flex gap-4">
-          <Button type="submit" disabled={createMutation.isPending}>
+          <Button type="submit" disabled={createMutation.isPending || isUploading}>
             <Save className="h-4 w-4 mr-2" />
             {createMutation.isPending ? 'Creating...' : 'Create Payment Order'}
           </Button>

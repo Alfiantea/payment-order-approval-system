@@ -17,7 +17,8 @@ import {
   DollarSign,
   Building,
   FileText,
-  Package
+  Package,
+  Download
 } from 'lucide-react';
 import { formatCurrency, formatDate, getStatusColor } from '../utils/format';
 import { useBackend } from '../hooks/useAuth';
@@ -102,6 +103,22 @@ export default function PaymentOrderDetail() {
 
   const handleStatusUpdate = (status: PaymentOrderStatus) => {
     updateStatusMutation.mutate({ status, comments });
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getFileIcon = (mimeType: string) => {
+    if (mimeType.includes('pdf')) return '📄';
+    if (mimeType.includes('word')) return '📝';
+    if (mimeType.includes('excel') || mimeType.includes('sheet')) return '📊';
+    if (mimeType.includes('image')) return '🖼️';
+    return '📎';
   };
 
   return (
@@ -356,19 +373,29 @@ export default function PaymentOrderDetail() {
             </CardHeader>
             <CardContent>
               {paymentOrder.attachments?.length > 0 ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {paymentOrder.attachments.map((attachment) => (
-                    <div key={attachment.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                      <FileText className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm">{attachment.filename}</span>
+                    <div key={attachment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{getFileIcon(attachment.mime_type)}</span>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{attachment.filename}</p>
+                          <p className="text-xs text-gray-500">
+                            {formatFileSize(attachment.file_size)} • {attachment.mime_type}
+                          </p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
+                        <Download className="h-4 w-4" />
+                      </Button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-4">
-                  <FileText className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                <div className="text-center py-6">
+                  <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-sm text-gray-500">No attachments uploaded</p>
-                  <p className="text-xs text-red-600 mt-1">Attachment is mandatory</p>
+                  <p className="text-xs text-red-600 mt-1">Document attachment is mandatory</p>
                 </div>
               )}
             </CardContent>

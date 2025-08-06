@@ -4,7 +4,8 @@ import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, 
   FileText, 
-  Plus
+  Plus,
+  Users
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -15,6 +16,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Payment Orders', href: '/payment-orders', icon: FileText },
   { name: 'Create Order', href: '/payment-orders/new', icon: Plus },
+  { name: 'User Management', href: '/admin/users', icon: Users },
 ];
 
 export default function Layout({ children }: LayoutProps) {

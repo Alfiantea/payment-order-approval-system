@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import PaymentOrders from './pages/PaymentOrders';
 import PaymentOrderDetail from './pages/PaymentOrderDetail';
 import CreatePaymentOrder from './pages/CreatePaymentOrder';
+import UserManagement from './pages/UserManagement';
 
 const queryClient = new QueryClient();
 
@@ -19,6 +20,7 @@ export default function App() {
             <Route path="/payment-orders" element={<PaymentOrders />} />
             <Route path="/payment-orders/new" element={<CreatePaymentOrder />} />
             <Route path="/payment-orders/:id" element={<PaymentOrderDetail />} />
+            <Route path="/admin/users" element={<UserManagement />} />
           </Routes>
         </Layout>
         <Toaster />

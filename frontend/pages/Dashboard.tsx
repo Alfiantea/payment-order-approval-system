@@ -9,15 +9,16 @@ import {
   TrendingUp,
   Building
 } from 'lucide-react';
-import { formatCurrency, formatDate } from '../utils/format';
-import { useBackend } from '../hooks/useAuth';
+import { formatCurrency } from '../utils/format';
+import api from '../services/api';
 
 export default function Dashboard() {
-  const backend = useBackend();
-  
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ['dashboard'],
-    queryFn: () => backend.payment.dashboard(),
+    queryFn: async () => {
+        const response = await api.get('/dashboard');
+        return response.data;
+    },
   });
 
   if (isLoading) {
@@ -110,7 +111,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {stats?.status_breakdown?.map((item) => (
+              {stats?.status_breakdown?.map((item: any) => (
                 <div key={item.status} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="capitalize">
@@ -134,7 +135,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {stats?.department_breakdown?.map((item) => (
+              {stats?.department_breakdown?.map((item: any) => (
                 <div key={item.department} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">
@@ -155,7 +156,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {stats?.recent_orders?.slice(0, 5).map((order) => (
+              {stats?.recent_orders?.slice(0, 5).map((order: any) => (
                 <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex-1">
                     <p className="font-medium text-sm">{order.po_number}</p>

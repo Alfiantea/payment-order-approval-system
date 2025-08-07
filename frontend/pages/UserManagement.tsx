@@ -21,22 +21,13 @@ import {
   FileText
 } from 'lucide-react';
 import { formatDate } from '../utils/format';
-import { useBackend } from '../hooks/useAuth';
-import type { UserRole } from '~backend/payment/types';
-
-interface User {
-  id: number;
-  email: string;
-  name: string;
-  role: UserRole;
-  created_at: Date;
-  updated_at: Date;
-}
+import api from '../services/api';
+import { User, UserRole } from '../types/models';
+import { AxiosError } from 'axios';
 
 export default function UserManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const backend = useBackend();
   
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -56,18 +47,24 @@ export default function UserManagement() {
     password: '',
   });
 
-  const { data: usersData, isLoading } = useQuery({
+  const { data: usersData, isLoading } = useQuery<{users: User[]}>({
     queryKey: ['users'],
-    queryFn: () => backend.payment.listUsers(),
+    queryFn: async () => {
+        const response = await api.get('/users');
+        return response.data;
+    },
   });
 
   const { data: statsData } = useQuery({
     queryKey: ['user-stats'],
-    queryFn: () => backend.payment.getUserStats(),
+    queryFn: async () => {
+        const response = await api.get('/admin/users/stats');
+        return response.data;
+    },
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof createForm) => backend.payment.createUser(data),
+    mutationFn: (data: typeof createForm) => api.post('/admin/users', data),
     onSuccess: () => {
       toast({
         title: "Success",
@@ -78,11 +75,11 @@ export default function UserManagement() {
       setIsCreateDialogOpen(false);
       setCreateForm({ email: '', name: '', role: 'finance_staff', password: '' });
     },
-    onError: (error) => {
+    onError: (error: AxiosError<{message: string}>) => {
       console.error('Create user error:', error);
       toast({
         title: "Error",
-        description: "Failed to create user",
+        description: error.response?.data?.message || "Failed to create user",
         variant: "destructive",
       });
     },
@@ -90,7 +87,7 @@ export default function UserManagement() {
 
   const updateMutation = useMutation({
     mutationFn: (data: { id: number; email?: string; name?: string; role?: UserRole; password?: string }) => 
-      backend.payment.updateUser(data),
+      api.put(`/admin/users/${data.id}`, data),
     onSuccess: () => {
       toast({
         title: "Success",
@@ -101,18 +98,18 @@ export default function UserManagement() {
       setIsEditDialogOpen(false);
       setEditingUser(null);
     },
-    onError: (error) => {
+    onError: (error: AxiosError<{message: string}>) => {
       console.error('Update user error:', error);
       toast({
         title: "Error",
-        description: "Failed to update user",
+        description: error.response?.data?.message || "Failed to update user",
         variant: "destructive",
       });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => backend.payment.deleteUser({ id }),
+    mutationFn: (id: number) => api.delete(`/admin/users/${id}`),
     onSuccess: () => {
       toast({
         title: "Success",
@@ -121,11 +118,11 @@ export default function UserManagement() {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['user-stats'] });
     },
-    onError: (error) => {
+    onError: (error: AxiosError<{message: string}>) => {
       console.error('Delete user error:', error);
       toast({
         title: "Error",
-        description: "Failed to delete user. User may have associated payment orders.",
+        description: error.response?.data?.message || "Failed to delete user.",
         variant: "destructive",
       });
     },
@@ -313,7 +310,7 @@ export default function UserManagement() {
           </CardContent>
         </Card>
 
-        {statsData?.role_breakdown?.slice(0, 3).map((item) => (
+        {statsData?.role_breakdown?.map((item: any) => (
           <Card key={item.role}>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -503,7 +500,7 @@ export default function UserManagement() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              {statsData.role_breakdown.map((item) => (
+              {statsData.role_breakdown.map((item: any) => (
                 <div key={item.role} className="text-center p-4 bg-gray-50 rounded-lg">
                   <div className="flex justify-center mb-2">
                     {getRoleIcon(item.role as UserRole)}

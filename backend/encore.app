@@ -1,1 +1,0 @@
-{"id": "payment-order-approval-system-uc92", "lang": "typescript"}

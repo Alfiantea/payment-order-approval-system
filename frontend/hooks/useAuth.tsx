@@ -1,12 +1,6 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import backend from '~backend/client';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-}
+import api from '../services/api';
+import { User } from '../types/models';
 
 interface AuthContextType {
   user: User | null;
@@ -22,47 +16,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const getAuthenticatedBackend = () => {
-    const token = localStorage.getItem('auth_token');
-    if (!token) return backend;
-    
-    return backend.with({
-      auth: () => Promise.resolve({ authorization: `Bearer ${token}` })
-    });
-  };
-
-  const checkAuth = async () => {
-    try {
+  useEffect(() => {
+    const checkAuth = async () => {
       const token = localStorage.getItem('auth_token');
       if (!token) {
         setLoading(false);
         return;
       }
 
-      const authBackend = getAuthenticatedBackend();
-      const response = await authBackend.auth.me();
-      setUser(response);
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      localStorage.removeItem('auth_token');
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+      try {
+        const response = await api.get<User>('/auth/me');
+        setUser(response.data);
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        localStorage.removeItem('auth_token');
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  useEffect(() => {
     checkAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
-      console.log('Attempting login with backend client...');
-      const response = await backend.auth.login({ email, password });
-      console.log('Login response received:', response);
-      
-      localStorage.setItem('auth_token', response.token);
-      setUser(response.user);
+      const response = await api.post('/auth/login', { email, password });
+      localStorage.setItem('auth_token', response.data.token);
+      setUser(response.data.user);
+      // Update the axios instance with the new token
+      api.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
     } catch (error) {
       console.error('Login error in useAuth:', error);
       throw error;
@@ -71,13 +54,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      const authBackend = getAuthenticatedBackend();
-      await authBackend.auth.logout();
+      await api.post('/auth/logout');
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
       localStorage.removeItem('auth_token');
       setUser(null);
+      // Remove the auth header from the axios instance
+      delete api.defaults.headers.common['Authorization'];
     }
   };
 
@@ -100,11 +84,5 @@ export function useAuth() {
   return context;
 }
 
-export function useBackend() {
-  const token = localStorage.getItem('auth_token');
-  if (!token) return backend;
-  
-  return backend.with({
-    auth: () => Promise.resolve({ authorization: `Bearer ${token}` })
-  });
-}
+// The useBackend hook is no longer needed with the new api service.
+// Components can directly import and use the configured axios instance from 'services/api'.

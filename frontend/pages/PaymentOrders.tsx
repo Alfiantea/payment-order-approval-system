@@ -8,26 +8,34 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Search, Eye } from 'lucide-react';
 import { formatCurrency, formatDate, getStatusColor } from '../utils/format';
-import { useBackend } from '../hooks/useAuth';
-import type { PaymentOrderStatus, Department } from '~backend/payment/types';
+import api from '../services/api';
+import { PaymentOrderStatus, Department, PaymentOrder } from '../types/models';
+
+interface ListResponse {
+    payment_orders: (PaymentOrder & { created_by_name: string; acknowledge_by_name?: string; approval_by_name?: string })[];
+    total: number;
+}
 
 export default function PaymentOrders() {
-  const backend = useBackend();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PaymentOrderStatus | 'all'>('all');
   const [departmentFilter, setDepartmentFilter] = useState<Department | 'all'>('all');
   const [page, setPage] = useState(0);
   const limit = 20;
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<ListResponse>({
     queryKey: ['payment-orders', statusFilter, departmentFilter, search, page],
-    queryFn: () => backend.payment.list({
-      status: statusFilter === 'all' ? undefined : statusFilter,
-      department: departmentFilter === 'all' ? undefined : departmentFilter,
-      search: search || undefined,
-      limit,
-      offset: page * limit,
-    }),
+    queryFn: async () => {
+        const params = {
+            status: statusFilter === 'all' ? undefined : statusFilter,
+            department: departmentFilter === 'all' ? undefined : departmentFilter,
+            search: search || undefined,
+            limit,
+            offset: page * limit,
+        };
+        const response = await api.get('/payment-orders', { params });
+        return response.data;
+    },
   });
 
   const statusOptions: { value: PaymentOrderStatus | 'all'; label: string }[] = [

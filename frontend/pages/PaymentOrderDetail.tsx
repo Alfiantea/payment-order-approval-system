@@ -21,31 +21,29 @@ import {
   Download
 } from 'lucide-react';
 import { formatCurrency, formatDate, getStatusColor } from '../utils/format';
-import { useBackend } from '../hooks/useAuth';
-import type { PaymentOrderStatus } from '~backend/payment/types';
+import api from '../services/api';
+import { PaymentOrderStatus, PaymentOrderWithDetails } from '../types/models';
 
 export default function PaymentOrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const backend = useBackend();
   
   const [comments, setComments] = useState('');
 
-  const { data: paymentOrder, isLoading } = useQuery({
+  const { data: paymentOrder, isLoading } = useQuery<PaymentOrderWithDetails>({
     queryKey: ['payment-order', id],
-    queryFn: () => backend.payment.get({ id: parseInt(id!) }),
+    queryFn: async () => {
+        const response = await api.get(`/payment-orders/${id}`);
+        return response.data;
+    },
     enabled: !!id,
   });
 
   const updateStatusMutation = useMutation({
     mutationFn: (data: { status: PaymentOrderStatus; comments?: string }) =>
-      backend.payment.updateStatus({
-        id: parseInt(id!),
-        status: data.status,
-        comments: data.comments,
-      }),
+      api.put(`/payment-orders/${id}/status`, data),
     onSuccess: () => {
       toast({
         title: "Success",

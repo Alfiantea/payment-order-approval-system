@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { ArrowLeft, Save, Plus, Trash2, Upload, FileText, X } from 'lucide-react';
-import { useBackend } from '../hooks/useAuth';
-import type { POType, Department } from '~backend/payment/types';
+import api from '../services/api';
+import { POType, Department, User } from '../types/models';
+import { AxiosError } from 'axios';
 
 interface POItem {
   description: string;
@@ -29,7 +30,6 @@ interface UploadedFile {
 export default function CreatePaymentOrder() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const backend = useBackend();
   
   const [formData, setFormData] = useState({
     vendor_name: '',
@@ -50,25 +50,28 @@ export default function CreatePaymentOrder() {
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const { data: usersData } = useQuery({
+  const { data: usersData } = useQuery<{users: User[]}>({
     queryKey: ['users'],
-    queryFn: () => backend.payment.listUsers(),
+    queryFn: async () => {
+        const response = await api.get('/users');
+        return response.data;
+    },
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => backend.payment.create(data),
+    mutationFn: (data: any) => api.post('/payment-orders', data),
     onSuccess: (response) => {
       toast({
         title: "Success",
         description: "Payment order created successfully",
       });
-      navigate(`/payment-orders/${response.payment_order.id}`);
+      navigate(`/payment-orders/${response.data.payment_order.id}`);
     },
-    onError: (error: any) => {
+    onError: (error) => {
       console.error('Create payment order error:', error);
       let errorMessage = "Failed to create payment order";
-      if (error?.message) {
-        errorMessage = error.message;
+      if (error instanceof AxiosError) {
+        errorMessage = error.response?.data?.message || error.message;
       }
       toast({
         title: "Error",
@@ -82,7 +85,6 @@ export default function CreatePaymentOrder() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       toast({
         title: "File Too Large",
@@ -92,7 +94,6 @@ export default function CreatePaymentOrder() {
       return;
     }
 
-    // Validate file type
     const allowedTypes = [
       'application/pdf',
       'image/jpeg',
@@ -115,11 +116,10 @@ export default function CreatePaymentOrder() {
 
     setIsUploading(true);
     try {
-      // Convert file to base64
       const reader = new FileReader();
       reader.onload = (e) => {
         const result = e.target?.result as string;
-        const base64Data = result.split(',')[1]; // Remove data:mime;base64, prefix
+        const base64Data = result.split(',')[1];
         
         setUploadedFile({
           name: file.name,

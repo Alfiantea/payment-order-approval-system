@@ -8,7 +8,7 @@ export interface User {
   updated_at: Date;
 }
 
-export type UserRole = 'admin' | 'finance_staff' | 'approver' | 'acknowledger' | 'verifier';
+export type UserRole = 'admin' | 'staff' | 'accounting_staff' | 'finance_staff' | 'approver' | 'acknowledger' | 'final_approver' | 'verifier';
 
 export type PaymentOrderStatus = 
   | 'draft' 
